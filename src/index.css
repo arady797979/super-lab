@@ -1,0 +1,88 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@theme {
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  
+  --color-bg: #0d1117;
+  --color-panel: #161b22;
+  --color-text: #f0f6fc;
+  --color-text-dim: #8b949e;
+  --color-accent: #00ffaa;
+  --color-accent-dim: #00ffaa22;
+  --color-accent-hover: #00e699;
+  --color-border: #30363d;
+  
+  --color-neon-blue: #00d2ff;
+  --color-neon-purple: #bd00ff;
+  --color-neon-pink: #ff00c8;
+  
+  @keyframes gradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+}
+
+:root:not(.dark) {
+  --color-bg: #f8fafc;
+  --color-panel: #ffffff;
+  --color-text: #0f172a;
+  --color-text-dim: #64748b;
+  --color-border: #e2e8f0;
+  --color-accent: #059669;
+  --color-accent-hover: #047857;
+}
+
+.animate-gradient {
+  background-size: 200% auto;
+  animation: gradient 4s linear infinite;
+}
+
+body {
+  @apply bg-bg text-text transition-colors duration-500 antialiased selection:bg-accent selection:text-black;
+  font-family: var(--font-sans);
+}
+
+h1, h2, h3, .heading-display {
+  font-family: var(--font-display);
+}
+
+textarea {
+  @apply bg-panel border-border text-text placeholder:text-text-dim focus:border-accent transition-all duration-200 outline-none;
+}
+
+.btn {
+  @apply px-5 py-3 rounded-lg font-semibold cursor-pointer transition-all duration-200 flex items-center justify-center gap-2 text-sm;
+}
+
+.btn-primary {
+  @apply bg-accent text-white hover:bg-accent-hover shadow-sm;
+}
+
+.btn-outline {
+  @apply bg-transparent border border-border text-text hover:bg-border;
+}
+
+.btn-stop {
+  @apply bg-red-500 text-white hover:bg-red-600 border-none;
+}
+
+.badge {
+  @apply bg-accent/10 text-accent px-2.5 py-1 rounded font-bold text-[11px];
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-border rounded-full hover:bg-text-dim/30;
+}
