@@ -48,18 +48,18 @@ interface SavedProject {
 
 // Languages supported by MyMemory API and browser TTS
 const SUPPORTED_LANGUAGES = [
-  { code: 'en', name: 'English', voiceKey: 'en' },
-  { code: 'es', name: 'Spanish', voiceKey: 'es' },
-  { code: 'fr', name: 'French', voiceKey: 'fr' },
-  { code: 'de', name: 'German', voiceKey: 'de' },
-  { code: 'it', name: 'Italian', voiceKey: 'it' },
-  { code: 'pt', name: 'Portuguese', voiceKey: 'pt' },
-  { code: 'zh', name: 'Chinese (Simplified)', voiceKey: 'zh' },
-  { code: 'ar', name: 'Arabic', voiceKey: 'ar' },
-  { code: 'hi', name: 'Hindi', voiceKey: 'hi' },
-  { code: 'ja', name: 'Japanese', voiceKey: 'ja' },
-  { code: 'ko', name: 'Korean', voiceKey: 'ko' },
-  { code: 'ru', name: 'Russian', voiceKey: 'ru' },
+  { code: 'en', name: 'English', voiceKey: 'en', recCode: 'en-US' },
+  { code: 'es', name: 'Spanish', voiceKey: 'es', recCode: 'es-ES' },
+  { code: 'fr', name: 'French', voiceKey: 'fr', recCode: 'fr-FR' },
+  { code: 'de', name: 'German', voiceKey: 'de', recCode: 'de-DE' },
+  { code: 'it', name: 'Italian', voiceKey: 'it', recCode: 'it-IT' },
+  { code: 'pt', name: 'Portuguese', voiceKey: 'pt', recCode: 'pt-PT' },
+  { code: 'zh', name: 'Chinese (Simplified)', voiceKey: 'zh', recCode: 'zh-CN' },
+  { code: 'ar', name: 'Arabic', voiceKey: 'ar', recCode: 'ar-SA' },
+  { code: 'hi', name: 'Hindi', voiceKey: 'hi', recCode: 'hi-IN' },
+  { code: 'ja', name: 'Japanese', voiceKey: 'ja', recCode: 'ja-JP' },
+  { code: 'ko', name: 'Korean', voiceKey: 'ko', recCode: 'ko-KR' },
+  { code: 'ru', name: 'Russian', voiceKey: 'ru', recCode: 'ru-RU' },
 ];
 
 type UILang = 'en' | 'ar' | 'es' | 'fr';
@@ -97,6 +97,7 @@ const UI_TRANSLATIONS: Record<UILang, any> = {
     targetEngine: 'Target Engine',
     processing: 'Processing',
     aiVoiceGen: 'AI Voice Generation...',
+    voiceLanguage: 'Voice Language',
     sloganMain: 'Turn any textbook into an audiobook',
     sloganSub: 'Enjoy translations of any text or audio book into another language',
     sloganVoice: 'Speak here and turn your speech into any language speech generated',
@@ -147,6 +148,7 @@ const UI_TRANSLATIONS: Record<UILang, any> = {
     targetEngine: 'محرك البحث',
     processing: 'جاري العمل',
     aiVoiceGen: 'توليد صوت ذكاء اصطناعي...',
+    voiceLanguage: 'لغة الصوت',
     sloganMain: 'حوّل أي كتاب مدرسي إلى كتاب صوتي',
     sloganSub: 'استمتع بترجمة أي نص أو كتاب صوتي إلى لغة أخرى',
     sloganVoice: 'تحدث هنا وحوّل كلامك إلى أي لغة منطوقة',
@@ -197,6 +199,7 @@ const UI_TRANSLATIONS: Record<UILang, any> = {
     targetEngine: 'Motor de Destino',
     processing: 'Procesando',
     aiVoiceGen: 'Generación de voz IA...',
+    voiceLanguage: 'Idioma de Voz',
     sloganMain: 'Convierte cualquier libro de texto en un audiolibro',
     sloganSub: 'Disfruta de las traducciones de cualquier texto o audiolibro a otro idioma',
     sloganVoice: 'Habla aquí y convierte tu voz en cualquier idioma generado',
@@ -247,6 +250,7 @@ const UI_TRANSLATIONS: Record<UILang, any> = {
     targetEngine: 'Moteur Cible',
     processing: 'Traitement',
     aiVoiceGen: 'Génération de voix IA...',
+    voiceLanguage: 'Langue de la Voix',
     sloganMain: 'Transformez n\'importe quel manuel en livre audio',
     sloganSub: 'Profitez des traductions de n\'importe quel texte ou livre audio dans une autre langue',
     sloganVoice: 'Parlez ici et transformez votre voix en n\'importe quelle langue générée',
@@ -288,6 +292,7 @@ export default function App() {
   const [sourceText, setSourceText] = useState('');
   const [translatedText, setTranslatedText] = useState('');
   const [targetLang, setTargetLang] = useState('es');
+  const [voiceLang, setVoiceLang] = useState('en');
   const [isTranslating, setIsTranslating] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
@@ -391,6 +396,17 @@ export default function App() {
     localStorage.setItem('aurabook_uilang', uiLang);
     document.dir = uiLang === 'ar' ? 'rtl' : 'ltr';
   }, [uiLang]);
+
+  // Persist Voice Language
+  useEffect(() => {
+    localStorage.setItem('vox_voicelang', voiceLang);
+  }, [voiceLang]);
+
+  // Load Preferences
+  useEffect(() => {
+    const savedVoiceLang = localStorage.getItem('vox_voicelang');
+    if (savedVoiceLang) setVoiceLang(savedVoiceLang);
+  }, []);
 
   // Load Consumption Data
   useEffect(() => {
@@ -895,7 +911,10 @@ export default function App() {
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'en-US'; // Default to English, can be improved to detect source
+    
+    // Use selected voice language recCode
+    const selectedLang = SUPPORTED_LANGUAGES.find(l => l.code === voiceLang);
+    recognition.lang = selectedLang?.recCode || 'en-US';
 
     recognition.onstart = () => {
       setIsRecording(true);
@@ -1109,16 +1128,32 @@ export default function App() {
                     <label className="text-[10px] font-black uppercase tracking-[0.2em] text-text-dim flex items-center gap-2">
                        {t.source} <span className="opacity-40 tracking-normal font-normal">/ {t.extraction}</span>
                     </label>
-                    <div className="flex gap-4 items-center">
+                    <div className="flex gap-2 items-center">
                       <div className="hidden lg:flex flex-col items-end mr-2">
                         <span className="text-[9px] font-black text-accent uppercase tracking-[0.15em] opacity-80">{t.sloganVoice}</span>
                       </div>
+                      
+                      <div className="relative group/lang">
+                        <select 
+                          value={voiceLang}
+                          onChange={(e) => setVoiceLang(e.target.value)}
+                          className="appearance-none bg-panel border border-border/40 text-[10px] font-bold uppercase tracking-wider pl-3 pr-8 py-1.5 rounded-lg hover:border-accent/50 transition-all cursor-pointer focus:outline-none focus:border-accent"
+                        >
+                          {SUPPORTED_LANGUAGES.map(lang => (
+                            <option key={lang.code} value={lang.code}>{lang.name}</option>
+                          ))}
+                        </select>
+                        <ChevronRight size={10} className="absolute right-2.5 top-1/2 -translate-y-1/2 rotate-90 text-text-dim pointer-events-none group-hover/lang:text-accent transition-colors" />
+                      </div>
+
                       <button 
                         onClick={toggleMic}
                         className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg border transition-all flex items-center gap-2 ${isRecording ? 'bg-red-500 border-red-500 text-white animate-pulse shadow-lg shadow-red-500/20' : 'text-text-dim border-border/40 hover:bg-white/5'}`}
                       >
                         <Mic size={12} className={isRecording ? 'animate-bounce' : ''} />
-                        {isRecording ? t.recording : t.capture}
+                        {isRecording 
+                          ? `${t.recording} (${SUPPORTED_LANGUAGES.find(l => l.code === voiceLang)?.name})` 
+                          : t.capture}
                       </button>
 
                       <button 
