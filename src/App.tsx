@@ -812,7 +812,7 @@ export default function App() {
 
   const handleDownloadText = (format: 'txt' | 'html' | 'json' = 'txt') => {
     let content = '';
-    let fileName = `Vox_Export_${targetLang}_${Date.now()}`;
+    let fileName = `VOC_Export_${targetLang}_${Date.now()}`;
     let type = 'text/plain';
 
     if (format === 'json') {
@@ -830,7 +830,7 @@ export default function App() {
         <!DOCTYPE html>
         <html>
         <head>
-          <title>Vox Translation - ${targetLang}</title>
+          <title>VOC Translation - ${targetLang}</title>
           <style>
             body { font-family: system-ui, sans-serif; line-height: 1.6; max-width: 800px; margin: 40px auto; padding: 20px; background: #0f172a; color: #f8fafc; }
             section { background: #1e293b; padding: 30px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #334155; }
@@ -841,7 +841,7 @@ export default function App() {
           </style>
         </head>
         <body>
-          <div class="meta">Exported from Vox Premium on ${new Date().toLocaleString()}</div>
+          <div class="meta">Exported from VOC Premium on ${new Date().toLocaleString()}</div>
           <section>
             <h2>Original Text</h2>
             <pre>${sourceText}</pre>
@@ -1086,12 +1086,25 @@ export default function App() {
   return (
     <div className="min-h-screen flex flex-col p-4 md:p-6 max-w-[1500px] mx-auto gap-6 transition-all duration-300">
       {/* Premium Navigation */}
-      <header className="flex justify-between items-center bg-panel/30 p-2 pl-4 pr-4 rounded-2xl border border-border/40 backdrop-blur-md">
+      <header className="flex justify-between items-center bg-panel/30 p-2 pl-4 pr-4 rounded-2xl border border-white/5 backdrop-blur-md relative overflow-hidden group/header">
+        {/* Animated Rainbow Border */}
+        <div className="absolute inset-x-0 bottom-0 h-[1px] bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 opacity-30 group-hover/header:opacity-100 transition-opacity duration-1000" />
+        
         <div className="flex items-center gap-6">
           <div className="flex flex-col">
             <h1 className="text-xl font-black tracking-tighter flex items-center gap-2 group cursor-default">
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-accent to-neon-blue group-hover:to-neon-purple transition-all duration-700">VOX</span> 
-              <span className="bg-accent text-[10px] px-2 py-0.5 rounded-full text-black font-black tracking-widest uppercase shadow-[0_0_15px_rgba(0,255,170,0.4)]">Premium</span>
+              <div className="relative">
+                <div className="absolute -inset-1.5 bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 rounded-lg blur opacity-30 group-hover:opacity-100 transition-opacity duration-1000 animate-pulse"></div>
+                <div className="relative bg-black/40 backdrop-blur-xl px-3 py-1.5 rounded-xl flex items-center gap-1.5 border border-white/10 shadow-2xl">
+                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-red-400 via-orange-400 via-yellow-400 via-green-400 via-blue-400 via-indigo-400 to-purple-400 animate-gradient-x font-black tracking-widest text-2xl">
+                    VOC
+                  </span>
+                </div>
+              </div>
+              <div className="flex flex-col -gap-1">
+                <span className="bg-gradient-to-r from-red-500 via-yellow-500 to-purple-500 bg-clip-text text-transparent text-[10px] font-black tracking-[0.3em] uppercase italic drop-shadow-sm">Premium</span>
+                <div className="h-0.5 w-full bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 rounded-full opacity-50" />
+              </div>
               {!isRealAiActive() && (
                 <span className="text-[8px] bg-white/5 border border-white/10 px-2 py-0.5 rounded-md text-text-dim font-bold tracking-widest uppercase ml-1">Sandbox</span>
               )}
@@ -1560,8 +1573,11 @@ export default function App() {
       </main>
 
       <footer className="footer flex justify-between items-center text-[10px] text-text-dim font-bold uppercase tracking-widest border-t border-border/20 py-4">
-         <div className="flex gap-6">
-            <span>© 2026 Vox Premium</span>
+         <div className="flex gap-6 items-center">
+            <div className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-br from-red-500 via-green-500 to-purple-500 animate-bounce" />
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-red-400 via-yellow-400 via-green-400 via-blue-400 to-purple-400 font-black">© 2026 VOC Premium Studio</span>
+            </div>
             <span className="text-accent/50 opacity-40">●</span>
             <span className="text-accent underline cursor-pointer">Security Protocol Active</span>
          </div>

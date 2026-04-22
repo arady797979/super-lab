@@ -1,5 +1,5 @@
 {
-  "name": "VOX Premium",
+  "name": "VOC Premium",
   "description": "Enterprise-grade translation and audiobook studio with AI-powered synthesis and consumption tracking.",
   "requestFramePermissions": ["microphone"],
   "majorCapabilities": []
