@@ -1407,13 +1407,19 @@ export default function App() {
                     </div>
                   </div>
                   
-                  <div className="relative flex-1 group">
+                  <div className="relative flex-1 group overflow-hidden rounded-3xl border-2 border-border/40 shadow-2xl">
+                    <img 
+                      src="https://picsum.photos/seed/garden/1200/800?grayscale" 
+                      alt="Natural Background" 
+                      className="absolute inset-0 w-full h-full object-cover opacity-15 mix-blend-soft-light pointer-events-none filter brightness-110"
+                      referrerPolicy="no-referrer"
+                    />
                     <textarea
                       value={sourceText}
                       onChange={(e) => setSourceText(e.target.value)}
                       placeholder="Paste text or import an audio/doc file for AI extraction..."
                       dir="auto"
-                      className="w-full h-full p-8 rounded-3xl border-2 border-border/40 bg-panel/20 shadow-2xl text-base lg:text-lg focus:border-accent/40 focus:bg-panel/40 transition-all resize-none"
+                      className="w-full h-full p-8 bg-panel/10 text-base lg:text-lg focus:border-accent/40 focus:bg-panel/30 transition-all resize-none relative z-10 outline-none"
                     />
 
                     {pendingFile && !isProcessingFile && (
@@ -1499,21 +1505,29 @@ export default function App() {
                     )}
                   </div>
                   
-                  <div className={`p-8 rounded-3xl border-2 border-border/40 bg-panel/30 shadow-2xl flex-1 overflow-y-auto relative ${!translatedText && 'flex items-center justify-center italic opacity-30 text-sm'}`}>
-                    <AnimatePresence mode="wait">
-                      {isTranslating ? (
-                        <motion.div key="loader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center gap-4">
-                           <div className="flex gap-2">
-                              {[0, 1, 2, 3].map(i => <motion.div key={i} animate={{ opacity: [0.2, 1, 0.2] }} transition={{ repeat: Infinity, duration: 1, delay: i * 0.2 }} className="w-2 h-2 rounded-full bg-accent" />)}
-                           </div>
-                           <span className="text-[10px] font-black uppercase tracking-[0.3em] text-accent">Translating Sequence...</span>
-                        </motion.div>
-                      ) : (
-                        <motion.div key="text" initial={{ opacity: 0 }} animate={{ opacity: 1 }} dir="auto" className="text-lg leading-relaxed font-medium">
-                          {translatedText || t.placeholderOutput}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                  <div className={`p-8 rounded-3xl border-2 border-border/40 bg-panel/10 shadow-2xl flex-1 overflow-y-auto relative overflow-hidden ${!translatedText && 'flex items-center justify-center italic opacity-30 text-sm'}`}>
+                    <img 
+                      src="https://picsum.photos/seed/calm/1200/800?grayscale" 
+                      alt="Natural Background" 
+                      className="absolute inset-0 w-full h-full object-cover opacity-15 mix-blend-soft-light pointer-events-none filter brightness-110"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="relative z-10 h-full">
+                      <AnimatePresence mode="wait">
+                        {isTranslating ? (
+                          <motion.div key="loader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center h-full gap-4">
+                             <div className="flex gap-2">
+                                {[0, 1, 2, 3].map(i => <motion.div key={i} animate={{ opacity: [0.2, 1, 0.2] }} transition={{ repeat: Infinity, duration: 1, delay: i * 0.2 }} className="w-2 h-2 rounded-full bg-accent" />)}
+                             </div>
+                             <span className="text-[10px] font-black uppercase tracking-[0.3em] text-accent">Translating Sequence...</span>
+                          </motion.div>
+                        ) : (
+                          <motion.div key="text" initial={{ opacity: 0 }} animate={{ opacity: 1 }} dir="auto" className="text-lg leading-relaxed font-medium">
+                            {translatedText || t.placeholderOutput}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
 
                     {isSpeaking && (
                       <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/5 overflow-hidden">
