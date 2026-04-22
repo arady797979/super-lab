@@ -98,6 +98,11 @@ const UI_TRANSLATIONS: Record<UILang, any> = {
     processing: 'Processing',
     aiVoiceGen: 'AI Voice Generation...',
     voiceLanguage: 'Voice Language',
+    autoDetect: 'Auto-Detect',
+    processFile: 'Process File',
+    fileName: 'File Name',
+    fileSize: 'Size',
+    fileReady: 'File Ready for Processing',
     sloganMain: 'Turn any textbook into an audiobook',
     sloganSub: 'Enjoy translations of any text or audio book into another language',
     sloganVoice: 'Speak here and turn your speech into any language speech generated',
@@ -149,6 +154,11 @@ const UI_TRANSLATIONS: Record<UILang, any> = {
     processing: 'جاري العمل',
     aiVoiceGen: 'توليد صوت ذكاء اصطناعي...',
     voiceLanguage: 'لغة الصوت',
+    autoDetect: 'تعرف تلقائي',
+    processFile: 'معالجة الملف',
+    fileName: 'اسم الملف',
+    fileSize: 'الحجم',
+    fileReady: 'الملف جاهز للمعالجة',
     sloganMain: 'حوّل أي كتاب مدرسي إلى كتاب صوتي',
     sloganSub: 'استمتع بترجمة أي نص أو كتاب صوتي إلى لغة أخرى',
     sloganVoice: 'تحدث هنا وحوّل كلامك إلى أي لغة منطوقة',
@@ -200,6 +210,11 @@ const UI_TRANSLATIONS: Record<UILang, any> = {
     processing: 'Procesando',
     aiVoiceGen: 'Generación de voz IA...',
     voiceLanguage: 'Idioma de Voz',
+    autoDetect: 'Auto-Detectar',
+    processFile: 'Procesar Archivo',
+    fileName: 'Nombre del Archivo',
+    fileSize: 'Tamaño',
+    fileReady: 'Archivo Listo para Procesar',
     sloganMain: 'Convierte cualquier libro de texto en un audiolibro',
     sloganSub: 'Disfruta de las traducciones de cualquier texto o audiolibro a otro idioma',
     sloganVoice: 'Habla aquí y convierte tu voz en cualquier idioma generado',
@@ -251,6 +266,11 @@ const UI_TRANSLATIONS: Record<UILang, any> = {
     processing: 'Traitement',
     aiVoiceGen: 'Génération de voix IA...',
     voiceLanguage: 'Langue de la Voix',
+    autoDetect: 'Auto-Détection',
+    processFile: 'Traiter le Fichier',
+    fileName: 'Nom du Fichier',
+    fileSize: 'Taille',
+    fileReady: 'Fichier Prêt pour le Traitement',
     sloganMain: 'Transformez n\'importe quel manuel en livre audio',
     sloganSub: 'Profitez des traductions de n\'importe quel texte ou livre audio dans une autre langue',
     sloganVoice: 'Parlez ici et transformez votre voix en n\'importe quelle langue générée',
@@ -292,7 +312,7 @@ export default function App() {
   const [sourceText, setSourceText] = useState('');
   const [translatedText, setTranslatedText] = useState('');
   const [targetLang, setTargetLang] = useState('es');
-  const [voiceLang, setVoiceLang] = useState('en');
+  const [voiceLang, setVoiceLang] = useState('auto');
   const [isTranslating, setIsTranslating] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
@@ -321,6 +341,7 @@ export default function App() {
   const [isProcessingFile, setIsProcessingFile] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Library & UI Scale States
@@ -835,37 +856,47 @@ export default function App() {
     });
   };
 
-  const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setPendingFile(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const processPendingFile = async () => {
+    if (!pendingFile) return;
 
     setIsProcessingFile(true);
-    setUploadProgress('Extracting content...');
+    setUploadProgress(t.translating);
     
     try {
-      const base64Data = await fileToBase64(file);
-      const mimeType = file.type || 'application/octet-stream';
+      const base64Data = await fileToBase64(pendingFile);
+      const mimeType = pendingFile.type || 'application/octet-stream';
       
       // Determine prompt based on file type
       let prompt = "Extract and transcribe all the text from this file exactly as it is. If it's an audio file, transcribe the speech.";
-      if (file.type.includes('pdf') || file.type.includes('document')) {
+      if (pendingFile.type.includes('pdf') || pendingFile.type.includes('document')) {
         prompt = "Extract all text from this document. Maintain the logical order of paragraphs.";
-      } else if (file.type.includes('audio')) {
+      } else if (pendingFile.type.includes('audio')) {
         prompt = "Transcribe this audio file accurately. Include only the spoken text.";
+      } else if (pendingFile.name.endsWith('.md')) {
+        prompt = "Extract all text and markdown formatting from this file.";
       }
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: {
-          parts: [
-            { text: prompt },
-            { inlineData: { data: base64Data, mimeType } }
-          ]
-        }
-      });
+      const response = await engine.extractContent(base64Data, mimeType, prompt);
 
-      if (response.text) {
-        setSourceText(response.text);
+      if (response && response.text) {
+        setSourceText(prev => (prev ? prev + '\n\n' : '') + response.text);
+        updateConsumption(response.usageMetadata, 'translation'); // Mapping file extraction to translation cost for now
+        setPendingFile(null); // Clear after processing
       } else {
         throw new Error('No text extracted');
       }
@@ -875,7 +906,6 @@ export default function App() {
     } finally {
       setIsProcessingFile(false);
       setUploadProgress('');
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -914,7 +944,7 @@ export default function App() {
     
     // Use selected voice language recCode
     const selectedLang = SUPPORTED_LANGUAGES.find(l => l.code === voiceLang);
-    recognition.lang = selectedLang?.recCode || 'en-US';
+    recognition.lang = voiceLang === 'auto' ? navigator.language : (selectedLang?.recCode || 'en-US');
 
     recognition.onstart = () => {
       setIsRecording(true);
@@ -1139,6 +1169,7 @@ export default function App() {
                           onChange={(e) => setVoiceLang(e.target.value)}
                           className="appearance-none bg-panel border border-border/40 text-[10px] font-bold uppercase tracking-wider pl-3 pr-8 py-1.5 rounded-lg hover:border-accent/50 transition-all cursor-pointer focus:outline-none focus:border-accent"
                         >
+                          <option value="auto">{t.autoDetect}</option>
                           {SUPPORTED_LANGUAGES.map(lang => (
                             <option key={lang.code} value={lang.code}>{lang.name}</option>
                           ))}
@@ -1152,7 +1183,7 @@ export default function App() {
                       >
                         <Mic size={12} className={isRecording ? 'animate-bounce' : ''} />
                         {isRecording 
-                          ? `${t.recording} (${SUPPORTED_LANGUAGES.find(l => l.code === voiceLang)?.name})` 
+                          ? `${t.recording} (${voiceLang === 'auto' ? t.autoDetect : (SUPPORTED_LANGUAGES.find(l => l.code === voiceLang)?.name)})` 
                           : t.capture}
                       </button>
 
@@ -1164,18 +1195,47 @@ export default function App() {
                         {isProcessingFile ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
                         {isProcessingFile ? uploadProgress : t.import}
                       </button>
-                      <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".mp3,.wav,.pdf,.docx,.txt" />
+                      <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".mp3,.wav,.pdf,.docx,.doc,.txt,.md,audio/*" />
                     </div>
                   </div>
                   
                   <div className="relative flex-1 group">
-            <textarea
-              value={sourceText}
-              onChange={(e) => setSourceText(e.target.value)}
-              placeholder="Paste text or import an audio/doc file for AI extraction..."
-              dir="auto"
-              className="w-full h-full p-8 rounded-3xl border-2 border-border/40 bg-panel/20 shadow-2xl text-base lg:text-lg focus:border-accent/40 focus:bg-panel/40 transition-all resize-none"
-            />
+                    <textarea
+                      value={sourceText}
+                      onChange={(e) => setSourceText(e.target.value)}
+                      placeholder="Paste text or import an audio/doc file for AI extraction..."
+                      dir="auto"
+                      className="w-full h-full p-8 rounded-3xl border-2 border-border/40 bg-panel/20 shadow-2xl text-base lg:text-lg focus:border-accent/40 focus:bg-panel/40 transition-all resize-none"
+                    />
+
+                    {pendingFile && !isProcessingFile && (
+                      <div className="absolute inset-0 bg-panel/95 backdrop-blur-xl flex flex-col items-center justify-center rounded-3xl z-30 p-8 border-2 border-accent/20">
+                        <div className="w-20 h-20 bg-accent/10 rounded-3xl flex items-center justify-center mb-6 text-accent">
+                          {pendingFile.type.includes('audio') ? <FileAudio size={40} /> : <FileText size={40} />}
+                        </div>
+                        <h3 className="text-xl font-black mb-1">{t.fileReady}</h3>
+                        <p className="text-text-dim text-sm mb-6 flex flex-col items-center">
+                          <span className="font-bold text-text mb-1">{pendingFile.name}</span>
+                          <span className="opacity-60">{formatFileSize(pendingFile.size)}</span>
+                        </p>
+                        
+                        <div className="flex gap-4">
+                          <button 
+                            onClick={processPendingFile}
+                            className="px-8 py-3 bg-accent text-black font-black rounded-xl hover:scale-105 transition-all shadow-lg shadow-accent/20 flex items-center gap-3 uppercase tracking-widest text-xs"
+                          >
+                            <Loader2 size={18} className={isProcessingFile ? "animate-spin" : "hidden"} />
+                            {isProcessingFile ? uploadProgress : t.processFile}
+                          </button>
+                          <button 
+                            onClick={() => setPendingFile(null)}
+                            className="px-8 py-3 bg-white/5 border border-border/40 font-black rounded-xl hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/50 transition-all uppercase tracking-widest text-xs"
+                          >
+                            {t.clear}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                     {!sourceText && !isProcessingFile && (
                       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-10 gap-4 p-8 text-center">
                         <Mic size={64} />

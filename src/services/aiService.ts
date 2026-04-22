@@ -33,6 +33,22 @@ class GeminiEngine {
     };
   }
 
+  async extractContent(base64Data: string, mimeType: string, prompt: string): Promise<TranslationResult> {
+    const response = await this.ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: {
+        parts: [
+          { text: prompt },
+          { inlineData: { data: base64Data, mimeType } }
+        ]
+      }
+    });
+    return {
+      text: response.text || "",
+      usageMetadata: (response as any).usageMetadata
+    };
+  }
+
   async tts(text: string, voiceName: string = 'Kore'): Promise<TTSResult> {
     const response = await this.ai.models.generateContent({
       model: "gemini-3.1-flash-tts-preview",
@@ -72,6 +88,18 @@ class MockEngine {
         promptTokenCount: text.length,
         candidatesTokenCount: mockedText.length,
         totalTokenCount: text.length + mockedText.length
+      }
+    };
+  }
+
+  async extractContent(_base64Data: string, _mimeType: string, _prompt: string): Promise<TranslationResult> {
+    await new Promise(r => setTimeout(r, 1500));
+    return {
+      text: "This is a simulated extraction result for your file. In production, VOX Premium uses Gemini Flash to transcribe audio and ingest documents with high precision.",
+      usageMetadata: {
+        promptTokenCount: 100,
+        candidatesTokenCount: 200,
+        totalTokenCount: 300
       }
     };
   }
