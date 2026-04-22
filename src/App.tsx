@@ -1092,18 +1092,45 @@ export default function App() {
         
         <div className="flex items-center gap-6">
           <div className="flex flex-col">
-            <h1 className="text-xl font-black tracking-tighter flex items-center gap-2 group cursor-default">
-              <div className="relative">
-                <div className="absolute -inset-1.5 bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 rounded-lg blur opacity-30 group-hover:opacity-100 transition-opacity duration-1000 animate-pulse"></div>
-                <div className="relative bg-black/40 backdrop-blur-xl px-3 py-1.5 rounded-xl flex items-center gap-1.5 border border-white/10 shadow-2xl">
-                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-red-400 via-orange-400 via-yellow-400 via-green-400 via-blue-400 via-indigo-400 to-purple-400 animate-gradient-x font-black tracking-widest text-2xl">
-                    VOC
-                  </span>
+            <h1 className="flex items-center gap-2 group cursor-default select-none">
+              <div className="relative flex items-center justify-center">
+                <div className="absolute -inset-2 bg-gradient-to-r from-red-500 via-yellow-500 to-purple-500 rounded-full blur-xl opacity-20 group-hover:opacity-60 transition-opacity duration-1000 animate-pulse"></div>
+                
+                <div className="relative flex items-center bg-black/40 backdrop-blur-xl px-4 py-2 rounded-2xl border border-white/10 shadow-2xl overflow-hidden group/logo">
+                   {/* Reflection effect */}
+                   <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent -translate-x-full group-hover/logo:translate-x-full transition-transform duration-1000" />
+                   
+                   <motion.div className="flex gap-0.5 items-baseline font-brand">
+                      <motion.span 
+                        animate={{ y: [0, -2, 0] }}
+                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                        className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-b from-red-400 to-red-600"
+                      >
+                        V
+                      </motion.span>
+                      <motion.span 
+                        animate={{ y: [0, 2, 0] }}
+                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+                        className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-b from-yellow-400 to-yellow-600 px-0.5"
+                      >
+                        O
+                      </motion.span>
+                      <motion.span 
+                        animate={{ y: [0, -2, 0] }}
+                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+                        className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-b from-purple-400 to-purple-600"
+                      >
+                        C
+                      </motion.span>
+                   </motion.div>
                 </div>
               </div>
-              <div className="flex flex-col -gap-1">
-                <span className="bg-gradient-to-r from-red-500 via-yellow-500 to-purple-500 bg-clip-text text-transparent text-[10px] font-black tracking-[0.3em] uppercase italic drop-shadow-sm">Premium</span>
-                <div className="h-0.5 w-full bg-gradient-to-r from-red-500 via-yellow-500 via-green-500 via-blue-500 to-purple-500 rounded-full opacity-50" />
+
+              <div className="flex flex-col">
+                <span className="font-brand font-black text-[12px] tracking-[0.4em] uppercase bg-gradient-to-r from-red-400 via-yellow-400 to-purple-400 bg-clip-text text-transparent drop-shadow-sm leading-none pt-1">
+                  Premium
+                </span>
+                <span className="text-[7px] text-text-dim font-black uppercase tracking-[0.1em] opacity-40">AI Translation Studio</span>
               </div>
               {!isRealAiActive() && (
                 <span className="text-[8px] bg-white/5 border border-white/10 px-2 py-0.5 rounded-md text-text-dim font-bold tracking-widest uppercase ml-1">Sandbox</span>
@@ -1119,13 +1146,13 @@ export default function App() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all relative overflow-hidden group ${activeTab === tab.id ? 'text-white' : 'text-text-dim hover:text-white'}`}
+                className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all relative overflow-hidden group font-brand ${activeTab === tab.id ? 'text-white' : 'text-text-dim hover:text-white'}`}
               >
                 {activeTab === tab.id && (
                   <motion.div 
                     layoutId="nav-bg"
-                    className="absolute inset-0 bg-white/5 border border-white/10"
-                    style={{ borderRadius: '12px' }}
+                    className="absolute inset-0 bg-white/5 border border-white/10 shadow-[inner_0_2px_4px_rgba(255,255,255,0.05)]"
+                    style={{ borderRadius: '16px' }}
                   />
                 )}
                 <tab.icon size={14} className={`relative z-10 ${activeTab === tab.id ? tab.color : 'text-current opacity-60'}`} />
@@ -1149,7 +1176,7 @@ export default function App() {
               const nextIndex = (langs.indexOf(uiLang) + 1) % langs.length;
               setUiLang(langs[nextIndex]);
             }}
-            className="px-3 h-10 flex items-center justify-center rounded-xl bg-panel border border-border/40 hover:border-accent transition-all text-text-dim hover:text-white gap-2"
+            className="px-4 h-11 flex items-center justify-center rounded-2xl bg-panel border border-border/40 hover:border-accent transition-all text-text-dim hover:text-white gap-2 font-brand"
             title="Switch UI Language"
           >
             <Languages size={18} className="text-accent" />
@@ -1157,23 +1184,23 @@ export default function App() {
           </button>
 
           <div className="hidden lg:flex gap-4 border-r border-border/40 pr-6 mr-2 ml-2">
-            <div className="text-right">
-              <span className="text-[10px] block font-black text-text-dim uppercase tracking-wider opacity-60">{t.sessionMetrics}</span>
+            <div className="text-right font-brand">
+              <span className="text-[9px] block font-black text-text-dim uppercase tracking-wider opacity-60">{t.sessionMetrics}</span>
               <span className="text-xs font-black bg-clip-text text-transparent bg-gradient-to-r from-accent to-neon-blue">{stats.wordCount} <span className="text-text-dim font-bold opacity-40 italic uppercase">{t.words}</span></span>
             </div>
           </div>
           
           <button 
             onClick={() => setShowConsumptionMatrix(true)}
-            className="w-10 h-10 flex items-center justify-center rounded-xl bg-panel border border-border/40 hover:border-accent transition-all text-text-dim hover:text-white"
+            className="w-11 h-11 flex items-center justify-center rounded-2xl bg-panel border border-border/40 hover:border-accent transition-all text-text-dim hover:text-white shadow-xl group"
             title="Consumption Matrix"
           >
-            <FileCode size={18} />
+            <FileCode size={18} className="group-hover:scale-110 transition-transform" />
           </button>
           
           <button 
             onClick={clearAll}
-            className="h-10 px-3 flex items-center justify-center rounded-xl bg-panel border border-border/40 hover:border-accent hover:bg-accent/10 transition-all text-text-dim hover:text-white group gap-2"
+            className="h-11 px-4 flex items-center justify-center rounded-2xl bg-panel border border-border/40 hover:border-accent hover:bg-accent/10 transition-all text-text-dim hover:text-white group gap-2 font-brand shadow-xl"
             title={t.clear}
           >
             <RotateCcw size={16} className="group-hover:-rotate-90 transition-transform duration-500" />
@@ -1182,9 +1209,9 @@ export default function App() {
 
           <button 
             onClick={() => setIsDarkMode(!isDarkMode)}
-            className="w-10 h-10 flex items-center justify-center rounded-xl bg-panel border border-border/40 hover:border-accent transition-all text-text-dim hover:text-white"
+            className="w-11 h-11 flex items-center justify-center rounded-2xl bg-panel border border-border/40 hover:border-accent transition-all text-text-dim hover:text-white shadow-xl group"
           >
-            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+            {isDarkMode ? <Sun size={18} className="group-hover:rotate-45 transition-transform" /> : <Moon size={18} className="group-hover:-rotate-12 transition-transform" />}
           </button>
         </div>
       </header>
