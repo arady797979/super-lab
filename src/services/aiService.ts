@@ -25,7 +25,9 @@ class GeminiEngine {
   async translate(text: string, targetLang: string): Promise<TranslationResult> {
     const response = await this.ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `Translate the following text exactly into ${targetLang}. Only return the translation, no extra commentary:\n\n${text}`,
+      contents: `Identify the source language and translate the following text exactly into ${targetLang}. 
+      If the source is already ${targetLang}, clean up any grammar or punctuation and return the refined text.
+      Only return the translation or refined text, no extra commentary:\n\n${text}`,
     });
     return {
       text: response.text || "",

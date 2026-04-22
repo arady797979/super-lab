@@ -323,7 +323,7 @@ export default function App() {
   const [sourceText, setSourceText] = useState('');
   const [translatedText, setTranslatedText] = useState('');
   const [targetLang, setTargetLang] = useState('es');
-  const [voiceLang, setVoiceLang] = useState('auto');
+  const [voiceLang, setVoiceLang] = useState('en');
   const [isLiveMode, setIsLiveMode] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -363,6 +363,7 @@ export default function App() {
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [sloganLangIndex, setSloganLangIndex] = useState(0);
+  const [lastGeneratedAudio, setLastGeneratedAudio] = useState<Blob | null>(null);
 
   const dynamicSlogans = [
     "Turn your speech into any language you like", // English
@@ -590,6 +591,7 @@ export default function App() {
     setIsAiProcessing(true);
     setIsSpeaking(true);
     isSpeakingRequested.current = true;
+    setLastGeneratedAudio(null);
 
     try {
       const targetLangName = SUPPORTED_LANGUAGES.find(l => l.code === targetLang)?.name || 'English';
@@ -623,6 +625,11 @@ export default function App() {
 
       // Gemini TTS returns 16-bit PCM at 24kHz
       const pcmData = new Int16Array(bytes.buffer);
+      
+      // Store for export
+      const wavBlob = encodeWAV(pcmData, 24000);
+      setLastGeneratedAudio(wavBlob);
+
       const audioBuffer = ctx.createBuffer(1, pcmData.length, 24000);
       const nowBuffering = audioBuffer.getChannelData(0);
       
@@ -936,13 +943,13 @@ export default function App() {
       const mimeType = pendingFile.type || 'application/octet-stream';
       
       // Determine prompt based on file type
-      let prompt = "Extract and transcribe all the text from this file exactly as it is. If it's an audio file, transcribe the speech.";
+      let prompt = "Extract and transcribe all the text from this file exactly as it is, preserving original scripts (like Arabic). If it's an audio file, transcribe the speech in its original language.";
       if (pendingFile.type.includes('pdf') || pendingFile.type.includes('document')) {
-        prompt = "Extract all text from this document. Maintain the logical order of paragraphs.";
+        prompt = "Extract all text from this document accurately, preserving original scripts and right-to-left formatting if present (especially Arabic). Maintain the logical order of paragraphs.";
       } else if (pendingFile.type.includes('audio')) {
-        prompt = "Transcribe this audio file accurately. Include only the spoken text.";
+        prompt = "Identify the language spoken and transcribe this audio file accurately in its original script (e.g. Arabic, English). Return only the spoken text.";
       } else if (pendingFile.name.endsWith('.md')) {
-        prompt = "Extract all text and markdown formatting from this file.";
+        prompt = "Extract all text and markdown formatting from this file, preserving all global characters.";
       }
 
       const response = await engine.extractContent(base64Data, mimeType, prompt);
@@ -961,6 +968,47 @@ export default function App() {
       setIsProcessingFile(false);
       setUploadProgress('');
     }
+  };
+
+  const handleExportAudio = () => {
+    if (!lastGeneratedAudio) return;
+    const url = URL.createObjectURL(lastGeneratedAudio);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `VOC_Premium_Vocal_${targetLang}_${Date.now()}.wav`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const encodeWAV = (samples: Int16Array, sampleRate: number) => {
+    const buffer = new ArrayBuffer(44 + samples.length * 2);
+    const view = new DataView(buffer);
+
+    const writeString = (view: DataView, offset: number, str: string) => {
+      for (let i = 0; i < str.length; i++) {
+        view.setUint8(offset + i, str.charCodeAt(i));
+      }
+    };
+
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 32 + samples.length * 2, true);
+    writeString(view, 8, 'WAVE');
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); // PCM
+    view.setUint16(22, 1, true); // Mono
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeString(view, 36, 'data');
+    view.setUint32(40, samples.length * 2, true);
+
+    for (let i = 0; i < samples.length; i++) {
+      view.setInt16(44 + i * 2, samples[i], true);
+    }
+
+    return new Blob([buffer], { type: 'audio/wav' });
   };
 
   const handleCopy = () => {
@@ -1026,7 +1074,7 @@ export default function App() {
     
     // Use selected voice language recCode
     const selectedLang = SUPPORTED_LANGUAGES.find(l => l.code === voiceLangRef.current);
-    recognition.lang = voiceLangRef.current === 'auto' ? navigator.language : (selectedLang?.recCode || 'en-US');
+    recognition.lang = selectedLang?.recCode || 'en-US';
 
     recognition.onstart = () => {
       setIsRecording(true);
@@ -1346,9 +1394,8 @@ export default function App() {
                         <select 
                           value={voiceLang}
                           onChange={(e) => setVoiceLang(e.target.value)}
-                          className="appearance-none bg-panel border border-border/40 text-[10px] font-bold uppercase tracking-wider pl-3 pr-8 py-1.5 rounded-lg hover:border-accent/50 transition-all cursor-pointer focus:outline-none focus:border-accent"
+                          className="appearance-none bg-panel border border-border/40 text-[10px] font-bold uppercase tracking-wider pl-4 pr-8 py-2 rounded-lg hover:border-accent/50 transition-all cursor-pointer focus:outline-none focus:border-accent"
                         >
-                          <option value="auto">{t.autoDetect}</option>
                           {SUPPORTED_LANGUAGES.map(lang => (
                             <option key={lang.code} value={lang.code}>{lang.name}</option>
                           ))}
@@ -1362,7 +1409,7 @@ export default function App() {
                       >
                         <Mic size={12} className={isRecording ? 'animate-bounce' : ''} />
                         {isRecording 
-                          ? `${t.recording} (${voiceLang === 'auto' ? t.autoDetect : (SUPPORTED_LANGUAGES.find(l => l.code === voiceLang)?.name)})` 
+                          ? `${t.recording} (${SUPPORTED_LANGUAGES.find(l => l.code === voiceLang)?.name})` 
                           : (isLiveMode ? t.liveTranslate : t.capture)}
                       </button>
 
@@ -1409,17 +1456,18 @@ export default function App() {
                   
                   <div className="relative flex-1 group overflow-hidden rounded-3xl border-2 border-border/40 shadow-2xl">
                     <img 
-                      src="https://picsum.photos/seed/garden/1200/800?grayscale" 
+                      src="https://picsum.photos/seed/nature-vibe/1200/800" 
                       alt="Natural Background" 
-                      className="absolute inset-0 w-full h-full object-cover opacity-15 mix-blend-soft-light pointer-events-none filter brightness-110"
+                      className="absolute inset-0 w-full h-full object-cover opacity-30 filter brightness-110 contrast-125 pointer-events-none transition-transform duration-1000 group-hover:scale-105"
                       referrerPolicy="no-referrer"
                     />
+                    <div className="absolute inset-0 bg-gradient-to-b from-panel/40 to-panel/80 pointer-events-none" />
                     <textarea
                       value={sourceText}
                       onChange={(e) => setSourceText(e.target.value)}
                       placeholder="Paste text or import an audio/doc file for AI extraction..."
                       dir="auto"
-                      className="w-full h-full p-8 bg-panel/10 text-base lg:text-lg focus:border-accent/40 focus:bg-panel/30 transition-all resize-none relative z-10 outline-none"
+                      className="w-full h-full p-8 bg-transparent text-base lg:text-lg focus:border-accent/40 transition-all resize-none relative z-10 outline-none"
                     />
 
                     {pendingFile && !isProcessingFile && (
@@ -1505,13 +1553,14 @@ export default function App() {
                     )}
                   </div>
                   
-                  <div className={`p-8 rounded-3xl border-2 border-border/40 bg-panel/10 shadow-2xl flex-1 overflow-y-auto relative overflow-hidden ${!translatedText && 'flex items-center justify-center italic opacity-30 text-sm'}`}>
+                  <div className={`p-8 rounded-3xl border-2 border-border/40 bg-panel/20 shadow-2xl flex-1 overflow-y-auto relative overflow-hidden ${!translatedText && 'flex items-center justify-center italic opacity-30 text-sm'}`}>
                     <img 
-                      src="https://picsum.photos/seed/calm/1200/800?grayscale" 
+                      src="https://picsum.photos/seed/bloom/1200/800" 
                       alt="Natural Background" 
-                      className="absolute inset-0 w-full h-full object-cover opacity-15 mix-blend-soft-light pointer-events-none filter brightness-110"
+                      className="absolute inset-0 w-full h-full object-cover opacity-30 filter brightness-110 contrast-125 pointer-events-none transition-transform duration-1000"
                       referrerPolicy="no-referrer"
                     />
+                    <div className="absolute inset-0 bg-gradient-to-b from-panel/40 to-panel/80 pointer-events-none" />
                     <div className="relative z-10 h-full">
                       <AnimatePresence mode="wait">
                         {isTranslating ? (
@@ -1570,19 +1619,34 @@ export default function App() {
 
                   <div className="h-px bg-border/20" />
 
-                  <div>
-                     <label className="text-[10px] font-black uppercase tracking-[0.2em] text-text-dim mb-4 block">{t.playbackHub}</label>
-                     <button 
-                        onClick={handleSpeak}
-                        disabled={isTranslating || (!sourceText && !translatedText)}
-                        className={`w-full py-8 rounded-2xl border-2 border-dashed transition-all flex flex-col items-center gap-3 ${isSpeaking ? 'bg-red-500/10 border-red-500/50 text-red-500' : 'bg-accent/5 border-accent/20 text-accent hover:bg-accent/10'}`}
-                     >
-                        <div className={`p-4 rounded-full ${isSpeaking ? 'bg-red-500 text-white' : 'bg-accent text-white'}`}>
-                          {isSpeaking ? <X size={24} /> : <Volume2 size={24} />}
-                        </div>
-                        <span className="font-black text-xs uppercase tracking-tighter">{isAiProcessing ? t.aiVoiceGen : (isSpeaking ? `${t.ttsSpeaking} ${SUPPORTED_LANGUAGES.find(l => l.code === (speakingLanguage || targetLang))?.name}` : t.tts)}</span>
-                     </button>
-                  </div>
+                   <div>
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-text-dim mb-4 block">{t.playbackHub}</label>
+                      
+                      <div className="flex gap-2">
+                        <button 
+                            onClick={handleSpeak}
+                            disabled={isTranslating || (!sourceText && !translatedText)}
+                            className={`flex-1 py-6 rounded-2xl border-2 border-dashed transition-all flex flex-col items-center gap-2 ${isSpeaking ? 'bg-red-500/10 border-red-500/50 text-red-500' : 'bg-accent/5 border-accent/20 text-accent hover:bg-accent/10'}`}
+                        >
+                            <div className={`p-2 rounded-full ${isSpeaking ? 'bg-red-500 text-white' : 'bg-accent text-white'}`}>
+                              {isSpeaking ? <X size={16} /> : <Volume2 size={16} />}
+                            </div>
+                            <span className="font-black text-[9px] uppercase tracking-tighter">
+                              {isAiProcessing ? "AI Gen" : (isSpeaking ? "Speaking" : "Generate")}
+                            </span>
+                        </button>
+
+                        <button 
+                            onClick={handleExportAudio}
+                            disabled={!lastGeneratedAudio}
+                            className={`py-6 px-4 rounded-2xl border-2 border-dashed transition-all flex flex-col items-center justify-center gap-2 ${!lastGeneratedAudio ? 'opacity-20 cursor-not-allowed border-border/20 grayscale' : 'bg-neon-blue/5 border-neon-blue/20 text-neon-blue hover:bg-neon-blue/10 shadow-lg shadow-neon-blue/5'}`}
+                            title="Export Generated Audio (.wav)"
+                        >
+                            <Download size={18} />
+                            <span className="font-black text-[9px] uppercase tracking-tighter">Export</span>
+                        </button>
+                      </div>
+                   </div>
 
                   <div className="mt-auto">
                     <div className="bg-bg/50 p-4 rounded-2xl border border-border/40">
