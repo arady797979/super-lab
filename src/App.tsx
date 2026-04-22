@@ -30,6 +30,9 @@ import {
   ExternalLink,
   FileCode,
   Globe,
+  RotateCcw,
+  Clock,
+  Sparkles,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getAiEngine, isRealAiActive } from './services/aiService';
@@ -100,6 +103,8 @@ const UI_TRANSLATIONS: Record<UILang, any> = {
     voiceLanguage: 'Voice Language',
     autoDetect: 'Auto-Detect',
     processFile: 'Process File',
+    liveTranslate: 'Live Translate',
+    liveTranslateActive: 'Live Session Active',
     fileName: 'File Name',
     fileSize: 'Size',
     fileReady: 'File Ready for Processing',
@@ -156,6 +161,8 @@ const UI_TRANSLATIONS: Record<UILang, any> = {
     voiceLanguage: 'لغة الصوت',
     autoDetect: 'تعرف تلقائي',
     processFile: 'معالجة الملف',
+    liveTranslate: 'ترجمة مباشرة',
+    liveTranslateActive: 'جلسة مباشرة نشطة',
     fileName: 'اسم الملف',
     fileSize: 'الحجم',
     fileReady: 'الملف جاهز للمعالجة',
@@ -212,6 +219,8 @@ const UI_TRANSLATIONS: Record<UILang, any> = {
     voiceLanguage: 'Idioma de Voz',
     autoDetect: 'Auto-Detectar',
     processFile: 'Procesar Archivo',
+    liveTranslate: 'Traducción en Vivo',
+    liveTranslateActive: 'Sesión en Vivo Activa',
     fileName: 'Nombre del Archivo',
     fileSize: 'Tamaño',
     fileReady: 'Archivo Listo para Procesar',
@@ -268,6 +277,8 @@ const UI_TRANSLATIONS: Record<UILang, any> = {
     voiceLanguage: 'Langue de la Voix',
     autoDetect: 'Auto-Détection',
     processFile: 'Traiter le Fichier',
+    liveTranslate: 'Traduction en Direct',
+    liveTranslateActive: 'Session en Direct Active',
     fileName: 'Nom du Fichier',
     fileSize: 'Taille',
     fileReady: 'Fichier Prêt pour le Traitement',
@@ -313,6 +324,7 @@ export default function App() {
   const [translatedText, setTranslatedText] = useState('');
   const [targetLang, setTargetLang] = useState('es');
   const [voiceLang, setVoiceLang] = useState('auto');
+  const [isLiveMode, setIsLiveMode] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
@@ -349,6 +361,30 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'workspace' | 'library'>('workspace');
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [sloganLangIndex, setSloganLangIndex] = useState(0);
+
+  const dynamicSlogans = [
+    "Turn your speech into any language you like", // English
+    "حوّل كلامك إلى أي لغة تحبها", // Arabic
+    "Convierte tu voz en cualquier idioma que te guste", // Spanish
+    "Transformez votre voix dans la langue de votre choix", // French
+    "Passe seu discurso para qualquer idioma que desejar", // Portuguese
+    "Transformeer je spraak in elke gewenste taal", // Dutch
+    "Ihre Sprache in jede beliebige Sprache umwandeln", // German
+  ];
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const sloganTimer = setInterval(() => {
+      setSloganLangIndex((prev) => (prev + 1) % dynamicSlogans.length);
+    }, 4000); // 2 seconds flash + 2 seconds freeze pattern (roughly)
+    return () => clearInterval(sloganTimer);
+  }, []);
 
   const synth = useRef<SpeechSynthesis | null>(null);
   const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
@@ -356,6 +392,14 @@ export default function App() {
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const isSpeakingRequested = useRef(false);
   const recognitionRef = useRef<any>(null);
+  const transcriptionRef = useRef('');
+  const liveModeRef = useRef(isLiveMode);
+  const voiceLangRef = useRef(voiceLang);
+  const wasLiveSessionRef = useRef(false);
+
+  // Sync refs with state
+  useEffect(() => { liveModeRef.current = isLiveMode; }, [isLiveMode]);
+  useEffect(() => { voiceLangRef.current = voiceLang; }, [voiceLang]);
 
   useEffect(() => {
     synth.current = window.speechSynthesis;
@@ -423,10 +467,18 @@ export default function App() {
     localStorage.setItem('vox_voicelang', voiceLang);
   }, [voiceLang]);
 
+  // Persist Live Mode
+  useEffect(() => {
+    localStorage.setItem('vox_livemode', isLiveMode ? 'true' : 'false');
+  }, [isLiveMode]);
+
   // Load Preferences
   useEffect(() => {
     const savedVoiceLang = localStorage.getItem('vox_voicelang');
     if (savedVoiceLang) setVoiceLang(savedVoiceLang);
+    
+    const savedLiveMode = localStorage.getItem('vox_livemode');
+    if (savedLiveMode) setIsLiveMode(savedLiveMode === 'true');
   }, []);
 
   // Load Consumption Data
@@ -540,7 +592,8 @@ export default function App() {
     isSpeakingRequested.current = true;
 
     try {
-      const result = await engine.tts(`Say this naturally in Arabic: ${text}`);
+      const targetLangName = SUPPORTED_LANGUAGES.find(l => l.code === targetLang)?.name || 'English';
+      const result = await engine.tts(`Speak the following naturally in ${targetLangName}: ${text}`);
 
       // Track usage
       if (result.usageMetadata) {
@@ -620,8 +673,9 @@ export default function App() {
     const useTranslation = targetLang !== 'en' && !!translatedText;
     const textToSpeak = useTranslation ? translatedText : sourceText;
 
-    // AI VOICE GATE: If Arabic, use the high-quality Gemini TTS engine
-    if (targetLang === 'ar' && useTranslation) {
+    // AI VOICE GATE: Use the high-quality Gemini TTS engine if available
+    const isAiActive = isRealAiActive();
+    if (isAiActive && useTranslation) {
        handleAiSpeak(textToSpeak);
        return;
     }
@@ -917,10 +971,38 @@ export default function App() {
   };
 
   const clearAll = () => {
-    if (window.confirm('Clear all text and translations?')) {
-      setSourceText('');
-      setTranslatedText('');
-      handleStop();
+    // Full Reset
+    setSourceText('');
+    setTranslatedText('');
+    setIsRecording(false);
+    setIsLiveMode(false);
+    recognitionRef.current?.stop();
+    handleStop();
+    transcriptionRef.current = '';
+  };
+
+  const processLiveTranslate = async (text: string) => {
+    if (!text.trim()) return;
+    
+    // Ensure the captured text is pasted in the source field
+    setSourceText(text.trim());
+    setIsTranslating(true);
+    
+    try {
+      const targetLangName = SUPPORTED_LANGUAGES.find(l => l.code === targetLang)?.name || targetLang;
+      const translation = await engine.translate(text, targetLangName);
+      
+      if (translation.usageMetadata) updateConsumption(translation.usageMetadata, 'translation');
+      
+      if (translation.text) {
+        setTranslatedText(translation.text.trim());
+        // Auto Speak
+        await handleAiSpeak(translation.text.trim());
+      }
+    } catch (e) {
+      console.error("Live processing failed:", e);
+    } finally {
+      setIsTranslating(false);
     }
   };
 
@@ -939,31 +1021,41 @@ export default function App() {
     }
 
     const recognition = new SpeechRecognition();
-    recognition.continuous = true;
+    recognition.continuous = true; 
     recognition.interimResults = true;
     
     // Use selected voice language recCode
-    const selectedLang = SUPPORTED_LANGUAGES.find(l => l.code === voiceLang);
-    recognition.lang = voiceLang === 'auto' ? navigator.language : (selectedLang?.recCode || 'en-US');
+    const selectedLang = SUPPORTED_LANGUAGES.find(l => l.code === voiceLangRef.current);
+    recognition.lang = voiceLangRef.current === 'auto' ? navigator.language : (selectedLang?.recCode || 'en-US');
 
     recognition.onstart = () => {
       setIsRecording(true);
+      transcriptionRef.current = ''; // Reset ref session
+      wasLiveSessionRef.current = liveModeRef.current; // Capture intent at start
+      if (liveModeRef.current) {
+        setSourceText('');
+        setTranslatedText('');
+      }
     };
 
     recognition.onresult = (event: any) => {
       let interimTranscript = '';
-      let finalTranscript = '';
+      let sessionFinal = '';
 
       for (let i = event.resultIndex; i < event.results.length; ++i) {
         if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript;
+          sessionFinal += event.results[i][0].transcript;
         } else {
           interimTranscript += event.results[i][0].transcript;
         }
       }
 
-      if (finalTranscript) {
-        setSourceText(prev => (prev ? prev + ' ' : '') + finalTranscript);
+      if (sessionFinal) {
+        transcriptionRef.current += (transcriptionRef.current ? ' ' : '') + sessionFinal;
+        setSourceText(transcriptionRef.current);
+      } else if (interimTranscript) {
+        // Show interim status in source text for live feedback
+        setSourceText(transcriptionRef.current + (transcriptionRef.current ? ' ' : '') + interimTranscript);
       }
     };
 
@@ -977,6 +1069,14 @@ export default function App() {
 
     recognition.onend = () => {
       setIsRecording(false);
+      // Ensure we have the latest transcriptionRef ref value
+      const finalText = transcriptionRef.current.trim();
+      
+      // Automatically trigger translation and speech if it WAS a Live Session
+      if (wasLiveSessionRef.current && finalText) {
+        processLiveTranslate(finalText);
+      }
+      wasLiveSessionRef.current = false; // Reset session
     };
 
     recognitionRef.current = recognition;
@@ -1023,6 +1123,13 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-black/20 border border-white/5 rounded-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]">
+            <Clock size={14} className="text-accent animate-pulse" />
+            <span className="text-[11px] font-black font-mono tracking-wider tabular-nums text-text-dim">
+              {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+          </div>
+
           <button 
             onClick={() => {
               const langs: UILang[] = ['en', 'ar', 'es', 'fr'];
@@ -1052,6 +1159,15 @@ export default function App() {
           </button>
           
           <button 
+            onClick={clearAll}
+            className="h-10 px-3 flex items-center justify-center rounded-xl bg-panel border border-border/40 hover:border-accent hover:bg-accent/10 transition-all text-text-dim hover:text-white group gap-2"
+            title={t.clear}
+          >
+            <RotateCcw size={16} className="group-hover:-rotate-90 transition-transform duration-500" />
+            <span className="text-[10px] font-black uppercase tracking-widest hidden lg:inline">{t.reset}</span>
+          </button>
+
+          <button 
             onClick={() => setIsDarkMode(!isDarkMode)}
             className="w-10 h-10 flex items-center justify-center rounded-xl bg-panel border border-border/40 hover:border-accent transition-all text-text-dim hover:text-white"
           >
@@ -1064,15 +1180,38 @@ export default function App() {
       <AnimatePresence mode="wait">
         {activeTab === 'workspace' && (
           <motion.div 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="flex flex-col items-center text-center gap-2 mb-2"
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className="flex flex-col items-center text-center gap-3 mb-2"
           >
-            <h2 className="text-3xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-accent via-neon-blue to-accent animate-gradient">
+            <h2 className="text-3xl md:text-4xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-accent via-neon-blue to-accent animate-gradient shadow-accent drop-shadow-2xl">
               {t.sloganMain}
             </h2>
-            <p className="text-sm text-text-dim max-w-2xl font-medium">
+            
+            <div className="h-8 flex items-center justify-center overflow-hidden">
+               <AnimatePresence mode="wait">
+                 <motion.div
+                   key={sloganLangIndex}
+                   initial={{ opacity: 0, y: 20, scale: 0.8 }}
+                   animate={{ opacity: 1, y: 0, scale: 1 }}
+                   exit={{ opacity: 0, y: -20, scale: 1.1 }}
+                   transition={{ 
+                     type: "spring",
+                     stiffness: 300,
+                     damping: 30,
+                     duration: 0.5 
+                   }}
+                   className="text-accent text-[10px] font-black uppercase tracking-[0.25em] flex items-center gap-2"
+                 >
+                   <Sparkles size={12} className="animate-spin-slow" />
+                   {dynamicSlogans[sloganLangIndex]}
+                   <Sparkles size={12} className="animate-spin-slow" />
+                 </motion.div>
+               </AnimatePresence>
+            </div>
+
+            <p className="text-[11px] text-text-dim max-w-2xl font-black uppercase tracking-widest opacity-60">
               {t.sloganSub}
             </p>
           </motion.div>
@@ -1158,7 +1297,7 @@ export default function App() {
                     <label className="text-[10px] font-black uppercase tracking-[0.2em] text-text-dim flex items-center gap-2">
                        {t.source} <span className="opacity-40 tracking-normal font-normal">/ {t.extraction}</span>
                     </label>
-                    <div className="flex gap-2 items-center">
+                    <div className="flex flex-wrap gap-2 items-center">
                       <div className="hidden lg:flex flex-col items-end mr-2">
                         <span className="text-[9px] font-black text-accent uppercase tracking-[0.15em] opacity-80">{t.sloganVoice}</span>
                       </div>
@@ -1184,7 +1323,27 @@ export default function App() {
                         <Mic size={12} className={isRecording ? 'animate-bounce' : ''} />
                         {isRecording 
                           ? `${t.recording} (${voiceLang === 'auto' ? t.autoDetect : (SUPPORTED_LANGUAGES.find(l => l.code === voiceLang)?.name)})` 
-                          : t.capture}
+                          : (isLiveMode ? t.liveTranslate : t.capture)}
+                      </button>
+
+                      <button 
+                        onClick={() => {
+                          if (!isLiveMode) {
+                            setIsLiveMode(true);
+                            // Start mic if not already recording
+                            if (!isRecording) toggleMic();
+                          } else {
+                            // If already recording, stop it to trigger translation
+                            if (isRecording) {
+                              toggleMic(); 
+                            }
+                            setIsLiveMode(false);
+                          }
+                        }}
+                        className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg border transition-all flex items-center gap-2 ${isLiveMode ? 'bg-accent/20 border-accent text-accent shadow-lg shadow-accent/10' : 'text-text-dim border-border/40 hover:bg-white/5'}`}
+                      >
+                        <Globe size={12} className={isLiveMode ? 'animate-spin-slow' : ''} />
+                        {isLiveMode ? (isRecording ? t.recording : t.liveTranslateActive) : t.liveTranslate}
                       </button>
 
                       <button 
@@ -1195,6 +1354,15 @@ export default function App() {
                         {isProcessingFile ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
                         {isProcessingFile ? uploadProgress : t.import}
                       </button>
+
+                      <button 
+                        onClick={clearAll}
+                        className="text-[10px] font-bold uppercase tracking-wider text-red-400 border border-red-500/20 px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition-all flex items-center gap-2 group"
+                      >
+                        <RotateCcw size={12} className="group-hover:-rotate-180 transition-transform duration-500" />
+                        {t.clear}
+                      </button>
+
                       <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".mp3,.wav,.pdf,.docx,.doc,.txt,.md,audio/*" />
                     </div>
                   </div>
@@ -1321,9 +1489,11 @@ export default function App() {
 
               {/* Advanced Sidebar */}
               <aside className="flex flex-col gap-6">
-                <div className="bg-panel/40 backdrop-blur-xl border border-border/40 rounded-[2rem] p-8 shadow-2xl flex flex-col gap-8 h-full">
+                <div className="bg-panel/40 backdrop-blur-xl border border-border/40 rounded-[2rem] p-8 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] ring-1 ring-white/10 flex flex-col gap-8 h-full transition-all hover:bg-panel/50">
                   <div>
-                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-text-dim mb-4 block">{t.targetEngine}</label>
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-text-dim mb-4 block flex items-center gap-2">
+                       <Settings size={12} className="text-accent" /> {t.targetEngine}
+                    </label>
                     <div className="grid grid-cols-1 gap-2">
                       <select 
                         value={targetLang}

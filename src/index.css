@@ -41,6 +41,15 @@
   animation: gradient 4s linear infinite;
 }
 
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 8s linear infinite;
+}
+
 body {
   @apply bg-bg text-text transition-colors duration-500 antialiased selection:bg-accent selection:text-black;
   font-family: var(--font-sans);
