@@ -129,7 +129,8 @@ const UI_TRANSLATIONS: Record<UILang, any> = {
     generateSound: 'Generate',
     speaking: 'Speaking',
     aiGen: 'AI Gen',
-    exportReady: 'Vocal Ready'
+    exportReady: 'Vocal Ready',
+    exportDoc: 'Export Doc'
   },
   ar: {
     studio: 'الاستوديو',
@@ -192,7 +193,8 @@ const UI_TRANSLATIONS: Record<UILang, any> = {
     generateSound: 'توليد',
     speaking: 'يتحدث',
     aiGen: 'توليد ذكاء',
-    exportReady: 'الصوت جاهز'
+    exportReady: 'الصوت جاهز',
+    exportDoc: 'تصدير نص'
   },
   es: {
     studio: 'Estudio',
@@ -900,6 +902,18 @@ export default function App() {
     setShowExportMenu(false);
   };
 
+  const handleQuickExportTranslation = () => {
+    if (!translatedText) return;
+    const content = translatedText;
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `VOC_Translation_${targetLang}_${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const saveToLibrary = () => {
     if (!sourceText.trim()) return;
     
@@ -1081,7 +1095,7 @@ export default function App() {
     }
   };
 
-  const toggleMic = () => {
+  const toggleMic = (forceLiveMode?: boolean) => {
     if (isRecording) {
       recognitionRef.current?.stop();
       setIsRecording(false);
@@ -1106,8 +1120,12 @@ export default function App() {
     recognition.onstart = () => {
       setIsRecording(true);
       transcriptionRef.current = ''; // Reset ref session
-      wasLiveSessionRef.current = liveModeRef.current; // Capture intent at start
-      if (liveModeRef.current) {
+      
+      // Capture the intent - prioritize forceLiveMode if provided, then ref, then current state
+      const isLive = forceLiveMode !== undefined ? forceLiveMode : liveModeRef.current;
+      wasLiveSessionRef.current = isLive; 
+      
+      if (isLive) {
         setSourceText('');
         setTranslatedText('');
       }
@@ -1444,8 +1462,8 @@ export default function App() {
                         onClick={() => {
                           if (!isLiveMode) {
                             setIsLiveMode(true);
-                            // Start mic if not already recording
-                            if (!isRecording) toggleMic();
+                            // Start mic if not already recording - passing true for forceLiveMode
+                            if (!isRecording) toggleMic(true);
                           } else {
                             // If already recording, stop it to trigger translation
                             if (isRecording) {
@@ -1569,6 +1587,13 @@ export default function App() {
                     </label>
                     {translatedText && (
                       <div className="flex gap-2">
+                        <button 
+                          onClick={handleQuickExportTranslation}
+                          title={t.exportDoc}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 border border-border/40 text-text-dim hover:bg-accent/10 hover:text-accent transition-all animate-pulse shadow-[0_0_15px_rgba(0,255,170,0.1)]"
+                        >
+                          <FileText size={14} />
+                        </button>
                         <button onClick={saveToLibrary} className="flex h-8 px-4 items-center gap-2 rounded-lg bg-white/5 border border-border/40 text-[10px] font-bold uppercase hover:bg-accent/10 hover:text-accent transition-all">
                           <Plus size={12} /> Save Project
                         </button>
