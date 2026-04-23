@@ -124,7 +124,12 @@ const UI_TRANSLATIONS: Record<UILang, any> = {
     close: 'Close Matrix',
     operationalBreakdown: 'Operational Breakdown',
     nominal: 'Status: Nominal',
-    systemDesc: 'System consumption remains within optimal parameters.'
+    systemDesc: 'System consumption remains within optimal parameters.',
+    exportSound: 'Export WAV',
+    generateSound: 'Generate',
+    speaking: 'Speaking',
+    aiGen: 'AI Gen',
+    exportReady: 'Vocal Ready'
   },
   ar: {
     studio: 'الاستوديو',
@@ -182,7 +187,12 @@ const UI_TRANSLATIONS: Record<UILang, any> = {
     close: 'إغلاق المصفوفة',
     operationalBreakdown: 'التحليل التشغيلي',
     nominal: 'الحالة: طبيعية',
-    systemDesc: 'استهلاك النظام ضمن المعايير المثالية.'
+    systemDesc: 'استهلاك النظام ضمن المعايير المثالية.',
+    exportSound: 'تصدير WAV',
+    generateSound: 'توليد',
+    speaking: 'يتحدث',
+    aiGen: 'توليد ذكاء',
+    exportReady: 'الصوت جاهز'
   },
   es: {
     studio: 'Estudio',
@@ -240,7 +250,11 @@ const UI_TRANSLATIONS: Record<UILang, any> = {
     close: 'Cerrar Matriz',
     operationalBreakdown: 'Desglose Operativo',
     nominal: 'Estado: Nominal',
-    systemDesc: 'El consumo del sistema permanece dentro de los parámetros óptimos.'
+    systemDesc: 'El consumo del sistema permanece dentro de los parámetros óptimos.',
+    exportSound: 'Exportar WAV',
+    generateSound: 'Generar',
+    speaking: 'Hablando',
+    aiGen: 'Gen IA'
   },
   fr: {
     studio: 'Studio',
@@ -298,7 +312,11 @@ const UI_TRANSLATIONS: Record<UILang, any> = {
     close: 'Fermer la Matrice',
     operationalBreakdown: 'Répartition Opérationnelle',
     nominal: 'Statut : Nominal',
-    systemDesc: 'La consommation du système reste dans les paramètres optimaux.'
+    systemDesc: 'La consommation du système reste dans les paramètres optimaux.',
+    exportSound: 'Exporter WAV',
+    generateSound: 'Générer',
+    speaking: 'Parle',
+    aiGen: 'Gén IA'
   }
 };
 
@@ -329,6 +347,7 @@ export default function App() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [copyFeedback, setCopyFeedback] = useState(false);
+  const [vocalReadyFeedback, setVocalReadyFeedback] = useState(false);
   const [progress, setProgress] = useState(0);
   const [speakingLanguage, setSpeakingLanguage] = useState<string | null>(null);
   const [uiLang, setUiLang] = useState<UILang>('en');
@@ -629,6 +648,10 @@ export default function App() {
       // Store for export
       const wavBlob = encodeWAV(pcmData, 24000);
       setLastGeneratedAudio(wavBlob);
+      
+      // Trigger visual feedback
+      setVocalReadyFeedback(true);
+      setTimeout(() => setVocalReadyFeedback(false), 3000);
 
       const audioBuffer = ctx.createBuffer(1, pcmData.length, 24000);
       const nowBuffering = audioBuffer.getChannelData(0);
@@ -919,10 +942,14 @@ export default function App() {
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
+    if (bytes < 1024) return bytes + ' Bytes';
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    const sizes = ['KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k)) - 1;
+    // We want specifically MB or GB for most files, but we'll adapt
+    const unitIndex = Math.max(0, i);
+    const value = bytes / Math.pow(k, unitIndex + 1);
+    return value.toFixed(2) + ' ' + sizes[unitIndex];
   };
 
   const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
@@ -1471,32 +1498,53 @@ export default function App() {
                     />
 
                     {pendingFile && !isProcessingFile && (
-                      <div className="absolute inset-0 bg-panel/95 backdrop-blur-xl flex flex-col items-center justify-center rounded-3xl z-30 p-8 border-2 border-accent/20">
-                        <div className="w-20 h-20 bg-accent/10 rounded-3xl flex items-center justify-center mb-6 text-accent">
-                          {pendingFile.type.includes('audio') ? <FileAudio size={40} /> : <FileText size={40} />}
+                      <motion.div 
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="absolute inset-0 bg-panel/98 backdrop-blur-3xl flex flex-col items-center justify-center rounded-3xl z-30 p-12 border-2 border-accent/30 shadow-[0_0_50px_rgba(0,255,170,0.1)]"
+                      >
+                        <div className="relative mb-8">
+                          <div className="absolute -inset-4 bg-accent/20 rounded-full blur-2xl animate-pulse"></div>
+                          <div className="relative w-24 h-24 bg-gradient-to-br from-accent/20 to-panel border-2 border-accent/40 rounded-[2rem] flex items-center justify-center text-accent shadow-2xl">
+                            {pendingFile.type.includes('audio') ? <FileAudio size={48} /> : <FileText size={48} />}
+                          </div>
+                          <div className="absolute -bottom-2 -right-2 bg-accent text-black text-[9px] font-black px-2 py-1 rounded-lg uppercase tracking-tighter shadow-lg">
+                            Ready
+                          </div>
                         </div>
-                        <h3 className="text-xl font-black mb-1">{t.fileReady}</h3>
-                        <p className="text-text-dim text-sm mb-6 flex flex-col items-center">
-                          <span className="font-bold text-text mb-1">{pendingFile.name}</span>
-                          <span className="opacity-60">{formatFileSize(pendingFile.size)}</span>
-                        </p>
+
+                        <div className="text-center mb-10 space-y-2">
+                          <h3 className="text-2xl font-brand font-black tracking-tight">{t.fileReady}</h3>
+                          <div className="flex flex-col items-center gap-1">
+                             <span className="text-sm font-bold text-text truncate max-w-[300px] px-4 py-2 bg-white/5 rounded-xl border border-white/5">
+                                {pendingFile.name}
+                             </span>
+                             <div className="flex items-center gap-3 mt-2">
+                               <div className="h-px w-8 bg-border/40" />
+                               <span className="text-[11px] font-black uppercase tracking-[0.2em] text-accent bg-accent/10 px-3 py-1 rounded-full border border-accent/20">
+                                  {formatFileSize(pendingFile.size)}
+                               </span>
+                               <div className="h-px w-8 bg-border/40" />
+                             </div>
+                          </div>
+                        </div>
                         
-                        <div className="flex gap-4">
+                        <div className="flex flex-col w-full max-w-[320px] gap-3">
                           <button 
                             onClick={processPendingFile}
-                            className="px-8 py-3 bg-accent text-black font-black rounded-xl hover:scale-105 transition-all shadow-lg shadow-accent/20 flex items-center gap-3 uppercase tracking-widest text-xs"
+                            className="w-full py-4 bg-accent text-black font-brand font-black rounded-2xl hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-accent/20 flex items-center justify-center gap-3 uppercase tracking-widest text-[11px]"
                           >
                             <Loader2 size={18} className={isProcessingFile ? "animate-spin" : "hidden"} />
                             {isProcessingFile ? uploadProgress : t.processFile}
                           </button>
                           <button 
                             onClick={() => setPendingFile(null)}
-                            className="px-8 py-3 bg-white/5 border border-border/40 font-black rounded-xl hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/50 transition-all uppercase tracking-widest text-xs"
+                            className="w-full py-4 bg-white/5 border border-border/40 font-brand font-black rounded-2xl hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/50 transition-all uppercase tracking-widest text-[11px]"
                           >
                             {t.clear}
                           </button>
                         </div>
-                      </div>
+                      </motion.div>
                     )}
                     {!sourceText && !isProcessingFile && (
                       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-10 gap-4 p-8 text-center">
@@ -1632,18 +1680,27 @@ export default function App() {
                               {isSpeaking ? <X size={16} /> : <Volume2 size={16} />}
                             </div>
                             <span className="font-black text-[9px] uppercase tracking-tighter">
-                              {isAiProcessing ? "AI Gen" : (isSpeaking ? "Speaking" : "Generate")}
+                              {isAiProcessing ? t.aiGen : (isSpeaking ? t.speaking : t.generateSound)}
                             </span>
                         </button>
 
                         <button 
                             onClick={handleExportAudio}
                             disabled={!lastGeneratedAudio}
-                            className={`py-6 px-4 rounded-2xl border-2 border-dashed transition-all flex flex-col items-center justify-center gap-2 ${!lastGeneratedAudio ? 'opacity-20 cursor-not-allowed border-border/20 grayscale' : 'bg-neon-blue/5 border-neon-blue/20 text-neon-blue hover:bg-neon-blue/10 shadow-lg shadow-neon-blue/5'}`}
-                            title="Export Generated Audio (.wav)"
+                            className={`relative py-6 px-4 rounded-2xl border-2 border-dashed transition-all flex flex-col items-center justify-center gap-2 ${!lastGeneratedAudio ? 'opacity-20 cursor-not-allowed border-border/20 grayscale' : 'bg-neon-blue/5 border-neon-blue/20 text-neon-blue hover:bg-neon-blue/10 shadow-lg shadow-neon-blue/5'} ${vocalReadyFeedback ? 'ring-2 ring-accent ring-offset-2 ring-offset-bg animate-pulse border-accent bg-accent/10 text-accent' : ''}`}
+                            title={t.exportSound}
                         >
+                            {vocalReadyFeedback && (
+                              <motion.div 
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="absolute -top-12 left-1/2 -translate-x-1/2 bg-accent text-black text-[9px] font-black px-3 py-1.5 rounded-full whitespace-nowrap shadow-xl"
+                              >
+                                {t.exportReady || "Vocal Ready"}
+                              </motion.div>
+                            )}
                             <Download size={18} />
-                            <span className="font-black text-[9px] uppercase tracking-tighter">Export</span>
+                            <span className="font-black text-[9px] uppercase tracking-tighter">{t.export}</span>
                         </button>
                       </div>
                    </div>
