@@ -350,6 +350,8 @@ export default function App() {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [vocalReadyFeedback, setVocalReadyFeedback] = useState(false);
+  const [globalError, setGlobalError] = useState<{ message: string; type: 'quota' | 'network' | 'generic' } | null>(null);
+  const [useMockFallback, setUseMockFallback] = useState(false);
   const [progress, setProgress] = useState(0);
   const [speakingLanguage, setSpeakingLanguage] = useState<string | null>(null);
   const [uiLang, setUiLang] = useState<UILang>('en');
@@ -369,6 +371,53 @@ export default function App() {
   });
 
   const [showConsumptionMatrix, setShowConsumptionMatrix] = useState(false);
+
+  // Central Error Handler
+  const handleError = (error: any, context: 'translation' | 'file' | 'tts' | 'speech') => {
+    console.error(`[VOC ${context}] Error:`, error);
+    
+    const errString = typeof error === 'string' ? error : JSON.stringify(error);
+    const isQuotaError = errString.includes('429') || errString.includes('RESOURCE_EXHAUSTED') || errString.includes('billing');
+    
+    // 1. Quota / Billing Check (Gemini)
+    if (isQuotaError) {
+      setGlobalError({
+        type: 'quota',
+        message: "Your Gemini AI credits are depleted. You can continue using the app in 'Demo Mode' or top up your credits at ai.studio."
+      });
+      if (context === 'tts') {
+        setIsAiProcessing(false);
+        isSpeakingRequested.current = false;
+        handleSpeak(); // Fallback to browser TTS immediately
+      }
+      return;
+    }
+
+    // 2. Network Check (Speech)
+    if (context === 'speech' && (error === 'network' || errString.includes('network'))) {
+      setGlobalError({
+        type: 'network',
+        message: "Speech recognition network error. Please check your internet connection or try again."
+      });
+      return;
+    }
+
+    // 3. Contextual Error Messages (Non-Quota)
+    let errorMessage = `An unexpected error occurred in ${context}.`;
+    if (context === 'translation') errorMessage = 'Translation failed. Please try again later.';
+    else if (context === 'file') errorMessage = 'Failed to process file. Verify it is a supported audio or document format.';
+    else if (context === 'tts') {
+      errorMessage = "AI Voice Generation failed. Falling back to browser voice.";
+      setIsAiProcessing(false);
+      isSpeakingRequested.current = false;
+      handleSpeak();
+    }
+
+    setGlobalError({
+      type: 'generic',
+      message: errorMessage
+    });
+  };
   
   // New States for File Support
   const [isProcessingFile, setIsProcessingFile] = useState(false);
@@ -395,6 +444,12 @@ export default function App() {
     "Transformeer je spraak in elke gewenste taal", // Dutch
     "Ihre Sprache in jede beliebige Sprache umwandeln", // German
   ];
+
+  useEffect(() => {
+    if ((engine as any).setForceMock) {
+      (engine as any).setForceMock(useMockFallback);
+    }
+  }, [useMockFallback]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -601,8 +656,7 @@ export default function App() {
         throw new Error('Translation failed');
       }
     } catch (error) {
-      console.error('Translation error:', error);
-      alert('Translation failed. Please try again later.');
+      handleError(error, 'translation');
     } finally {
       setIsTranslating(false);
     }
@@ -676,12 +730,7 @@ export default function App() {
       source.start();
       setIsAiProcessing(false);
     } catch (err) {
-      console.error("AI TTS Error:", err);
-      alert("AI Voice Generation failed. Falling back to browser voice.");
-      setIsAiProcessing(false);
-      // Fallback to browser TTS
-      isSpeakingRequested.current = false;
-      handleSpeak();
+      handleError(err, 'tts');
     }
   };
 
@@ -1003,8 +1052,7 @@ export default function App() {
         throw new Error('No text extracted');
       }
     } catch (error) {
-      console.error('File processing error:', error);
-      alert('Failed to process file. Make sure it is a supported audio or document format.');
+      handleError(error, 'file');
     } finally {
       setIsProcessingFile(false);
       setUploadProgress('');
@@ -1153,7 +1201,7 @@ export default function App() {
     };
 
     recognition.onerror = (event: any) => {
-      console.error("Speech recognition error", event.error);
+      handleError(event.error, 'speech');
       setIsRecording(false);
       if (event.error === 'not-allowed') {
         alert("Microphone access was denied.");
@@ -1178,6 +1226,45 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col p-4 md:p-6 max-w-[1500px] mx-auto gap-6 transition-all duration-300">
+      <AnimatePresence>
+        {globalError && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0, y: -20 }}
+            animate={{ height: 'auto', opacity: 1, y: 0 }}
+            exit={{ height: 0, opacity: 0, y: -20 }}
+            className={`w-full overflow-hidden z-[100] rounded-2xl ${globalError.type === 'quota' ? 'bg-red-500/90' : (globalError.type === 'network' ? 'bg-amber-500/90' : 'bg-accent/90')} backdrop-blur-md border border-white/20 shadow-2xl mb-4`}
+          >
+            <div className="px-6 py-5 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4 text-black">
+                <div className="p-2 bg-black/10 rounded-full">
+                  {globalError.type === 'quota' ? <Sparkles size={22} /> : (globalError.type === 'network' ? <Globe size={22} /> : <AlertTriangle size={22} />)}
+                </div>
+                <div>
+                  <h4 className="font-brand font-black text-xs uppercase tracking-widest mb-1">{globalError.type === 'quota' ? 'Quota Depleted' : (globalError.type === 'network' ? 'Network Error' : 'System Error')}</h4>
+                  <p className="text-[13px] font-bold leading-tight opacity-90">{globalError.message}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                {globalError.type === 'quota' && !useMockFallback && (
+                  <button 
+                    onClick={() => { setUseMockFallback(true); setGlobalError(null); }}
+                    className="bg-black text-white px-5 py-2.5 rounded-xl text-[11px] font-brand font-black uppercase tracking-wider hover:bg-white/20 transition-all border border-white/20 shadow-lg"
+                  >
+                    Switch to Demo Mode
+                  </button>
+                )}
+                <button 
+                  onClick={() => setGlobalError(null)}
+                  className="p-2 hover:bg-black/10 rounded-full transition-all"
+                >
+                  <X size={20} className="text-black" />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Premium Navigation */}
       <header className="flex justify-between items-center bg-panel/30 p-2 pl-4 pr-4 rounded-2xl border border-white/5 backdrop-blur-md relative overflow-hidden group/header">
         {/* Animated Rainbow Border */}
@@ -1225,7 +1312,13 @@ export default function App() {
                 </span>
                 <span className="text-[7px] text-text-dim font-black uppercase tracking-[0.1em] opacity-40">AI Translation Studio</span>
               </div>
-              {!isRealAiActive() && (
+              {useMockFallback && (
+                <div className="ml-2 flex items-center">
+                  <div className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse mr-1.5 shadow-[0_0_8px_rgba(245,158,11,0.5)]"></div>
+                  <span className="text-[9px] bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full text-amber-500 font-brand font-black tracking-widest uppercase">Demo Mode</span>
+                </div>
+              )}
+              {!isRealAiActive() && !useMockFallback && (
                 <span className="text-[8px] bg-white/5 border border-white/10 px-2 py-0.5 rounded-md text-text-dim font-bold tracking-widest uppercase ml-1">Sandbox</span>
               )}
             </h1>

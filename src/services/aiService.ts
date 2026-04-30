@@ -113,13 +113,41 @@ class MockEngine {
   }
 }
 
+class UnifiedEngine {
+  private gemini: GeminiEngine | null = null;
+  private mock: MockEngine = new MockEngine();
+  private forceMock: boolean = false;
+
+  constructor(apiKey?: string) {
+    if (apiKey && apiKey !== 'YOUR_API_KEY' && apiKey.length >= 10) {
+      this.gemini = new GeminiEngine(apiKey);
+    }
+  }
+
+  setForceMock(value: boolean) {
+    this.forceMock = value;
+  }
+
+  private get engine() {
+    return (this.forceMock || !this.gemini) ? this.mock : this.gemini;
+  }
+
+  async translate(text: string, targetLang: string): Promise<TranslationResult> {
+    return this.engine.translate(text, targetLang);
+  }
+
+  async extractContent(base64Data: string, mimeType: string, prompt: string): Promise<TranslationResult> {
+    return this.engine.extractContent(base64Data, mimeType, prompt);
+  }
+
+  async tts(text: string, voiceName?: string): Promise<TTSResult> {
+    return this.engine.tts(text, voiceName);
+  }
+}
+
 export const getAiEngine = () => {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey === 'YOUR_API_KEY' || apiKey.length < 10) {
-    console.warn("VOX: No valid Gemini API key found. Entering Demo Sandbox Mode.");
-    return new MockEngine();
-  }
-  return new GeminiEngine(apiKey);
+  return new UnifiedEngine(apiKey);
 };
 
 export const isRealAiActive = () => {
